@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import gz.dam.preferenciastarea.ui.theme.SimonDiceTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,7 +19,10 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    SimonDiceUI()
+                    val viewModel: VM = viewModel(
+                        factory = VMFactory(application)
+                    )
+                    SimonDiceUI(viewModel)
                 }
             }
         }
