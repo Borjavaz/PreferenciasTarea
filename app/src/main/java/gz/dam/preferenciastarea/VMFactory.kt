@@ -1,18 +1,17 @@
 package gz.dam.preferenciastarea
 
-
 import android.app.Application
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 
-// Crea ViewModels con dependencias (Application)
-// Ref: Android ViewModel with Factory https://developer.android.com/topic/libraries/architecture/viewmodel#factories
-class VMFactory(private val app: Application) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+/**
+ * Factory para crear el ViewModel con contexto de aplicación
+ */
+class VMFactory(private val application: Application) : ViewModelProvider.Factory {
+    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(VM::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return VM(app) as T
+            return VM(application) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Clase ViewModel desconocida")
     }
 }

@@ -9,11 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import gz.dam.preferenciastarea.ui.theme.SimonDiceTheme
 
-// Activity principal con Jetpack Compose
-
 class MainActivity : ComponentActivity() {
 
-    // Configura la UI con Compose y ViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -22,16 +19,16 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
+                    // CAMBIO: Pasar el ViewModelFactory al composable
                     val viewModel: VM = viewModel(
-                        factory = VMFactory(application) // Inyecta dependencias
+                        factory = VMFactory(application)
                     )
-                    SimonDiceUI(viewModel)
+                    SimonDiceUI(viewModel = viewModel)
                 }
             }
         }
     }
 
-    // Libera recursos al destruir la Activity
     override fun onDestroy() {
         super.onDestroy()
         SoundPlayer.getInstance(this).release()

@@ -9,18 +9,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * ViewModel del juego Simon Dice
+ */
 class VM(application: Application) : ViewModel() {
+    private val context = application.applicationContext
+    private val controladorRecord: ControladorRecord = ControladorRecordSharedPref(context)
 
-    private val repository: RecordRepository = SharedPreferencesRecordRepository(application)
-
+    // Estados reactivos usando StateFlow
     private val _gameState = MutableStateFlow<GameState>(GameState.Inicio)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
     private val _ronda = MutableStateFlow(0)
     val ronda: StateFlow<Int> = _ronda.asStateFlow()
 
-    private val _record = MutableStateFlow(RecordModel.default())
-    val record: StateFlow<RecordModel> = _record.asStateFlow()
+    // CAMBIO: Ahora el record es un Record (con ronda y timestamp)
+    private val _record = MutableStateFlow(Record.empty())
+    val record: StateFlow<Record> = _record.asStateFlow()
 
     private val _text = MutableStateFlow("PRESIONA START")
     val text: StateFlow<String> = _text.asStateFlow()
@@ -34,29 +39,28 @@ class VM(application: Application) : ViewModel() {
     private val _sonidoEvent = MutableStateFlow<SonidoEvent?>(null)
     val sonidoEvent: StateFlow<SonidoEvent?> = _sonidoEvent.asStateFlow()
 
+    // Velocidades para mejor visibilidad
     private val velocidadMostrarColor = 800L
     private val velocidadPausaEntreColores = 400L
     private val velocidadTiempoApagado = 200L
     private val velocidadPausaEntreRondas = 1200L
 
+    // Secuencias del juego
     private val secuencia = mutableListOf<Int>()
     private val secuenciaUsuario = mutableListOf<Int>()
 
     init {
-        cargarRecord()
+        // Inicializar el juego usando Datos
         Datos.reiniciarJuego()
+        // Cargar el record guardado al iniciar
+        cargarRecord()
     }
 
+    /**
+     * Carga el record desde el controlador
+     */
     private fun cargarRecord() {
-        _record.value = repository.getRecord()
-    }
-
-    private fun guardarRecordSiEsMayor(nuevaRonda: Int) {
-        if (nuevaRonda > _record.value.round) {
-            val nuevoRecord = RecordModel.createWithCurrentTime(nuevaRonda)
-            repository.saveRecord(nuevoRecord)
-            _record.value = nuevoRecord
-        }
+        _record.value = controladorRecord.obtenerRecord()
     }
 
     fun generaNumero(): Int = (0..3).random()
@@ -92,23 +96,30 @@ class VM(application: Application) : ViewModel() {
 
             delay(500)
 
+            // Agregar nuevo color a la secuencia
             val nuevoColor = generaNumero()
             secuencia.add(nuevoColor)
             _ronda.value = secuencia.size
 
+            // Mostrar secuencia completa
             mostrarSecuenciaCompleta()
         }
     }
 
     private suspend fun mostrarSecuenciaCompleta() {
         for ((index, colorInt) in secuencia.withIndex()) {
+            //ILUMINA Y DISPARA EVENTO DE SONIDO
             _colorActivo.value = colorInt
             _sonidoEvent.value = SonidoEvent.ColorSound(colorInt)
             delay(velocidadMostrarColor)
 
+            // APAGA
             _colorActivo.value = -1
+
+            //PAUSA (Tiempo de apagado mínimo)
             delay(velocidadTiempoApagado)
 
+            // PAUSA ENTRE COLORES (Solo si no es el último)
             if (index < secuencia.size - 1) {
                 delay(velocidadPausaEntreColores)
             }
@@ -132,6 +143,7 @@ class VM(application: Application) : ViewModel() {
             _gameState.value = GameState.ProcesandoInput
             _botonesBrillantes.value = false
 
+            // ILUMINA Y DISPARA EVENTO DE SONIDO
             _colorActivo.value = colorInt
             _sonidoEvent.value = SonidoEvent.ColorSound(colorInt)
             delay(400)
@@ -147,14 +159,12 @@ class VM(application: Application) : ViewModel() {
 
         if (secuenciaUsuario[indiceActual] != secuencia[indiceActual]) {
             _sonidoEvent.value = SonidoEvent.Error
-            guardarRecordSiEsMayor(_ronda.value)
             gameOver()
             return
         }
 
         if (secuenciaUsuario.size == secuencia.size) {
             _sonidoEvent.value = SonidoEvent.Victory
-            guardarRecordSiEsMayor(_ronda.value)
             secuenciaCorrecta()
         } else {
             _gameState.value = GameState.EsperandoJugador
@@ -168,12 +178,33 @@ class VM(application: Application) : ViewModel() {
             _gameState.value = GameState.SecuenciaCorrecta
             _text.value = "¡BIEN! SIGUIENTE RONDA"
 
+            // CAMBIO: Verificar si es un nuevo record usando el controlador
+            if (controladorRecord.esNuevoRecord(_ronda.value)) {
+                val nuevoRecord = Record(_ronda.value, System.currentTimeMillis())
+                _record.value = nuevoRecord
+                // Guardar usando el controlador
+                controladorRecord.guardarRecord(nuevoRecord)
+            }
+
+            efectoCelebracion()
+
             delay(velocidadPausaEntreRondas)
 
             comenzarNuevaRonda()
         }
     }
 
+    private suspend fun efectoCelebracion() {
+        repeat(2) {
+            for (i in 0..3) {
+                _colorActivo.value = i
+                _sonidoEvent.value = SonidoEvent.ColorSound(i)
+                delay(150)
+            }
+            _colorActivo.value = -1
+            delay(200)
+        }
+    }
 
     private fun gameOver() {
         viewModelScope.launch {
@@ -181,12 +212,22 @@ class VM(application: Application) : ViewModel() {
             _text.value = "GAME OVER - RONDA ${_ronda.value}"
             _botonesBrillantes.value = false
 
+            efectoGameOver()
 
             delay(2000)
-            _text.value = "RÉCORD: ${_record.value.round} - PRESIONA START"
+            _text.value = "RÉCORD: ${_record.value.ronda} - PRESIONA START"
         }
     }
 
+    private suspend fun efectoGameOver() {
+        repeat(3) {
+            _colorActivo.value = 0
+            _sonidoEvent.value = SonidoEvent.ColorSound(0)
+            delay(400)
+            _colorActivo.value = -1
+            delay(400)
+        }
+    }
 
     fun reiniciarJuego() {
         if (_gameState.value != GameState.Inicio) {
@@ -195,6 +236,7 @@ class VM(application: Application) : ViewModel() {
                 _text.value = "JUEGO REINICIADO"
                 _botonesBrillantes.value = false
 
+                // Efecto visual de reinicio
                 repeat(2) {
                     for (i in 0..3) {
                         _colorActivo.value = i
@@ -205,7 +247,7 @@ class VM(application: Application) : ViewModel() {
                     delay(200)
                 }
 
-                _text.value = "RÉCORD: ${_record.value.round} - PRESIONA START"
+                _text.value = "RÉCORD: ${_record.value.ronda} - PRESIONA START"
             }
         }
     }

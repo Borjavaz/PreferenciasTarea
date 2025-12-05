@@ -1,6 +1,5 @@
 package gz.dam.preferenciastarea
 
-
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,14 +15,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+
 @Composable
-fun SimonDiceUI(viewModel: VM = viewModel()) {
+fun SimonDiceUI(viewModel: VM) {
     val context = LocalContext.current
     val soundPlayer = remember { SoundPlayer.getInstance(context) }
 
     // Estados del juego
     val gameState by viewModel.gameState.collectAsState()
     val ronda by viewModel.ronda.collectAsState()
+    // CAMBIO: Ahora es un Record, no un Int
     val record by viewModel.record.collectAsState()
     val text by viewModel.text.collectAsState()
     val colorActivo by viewModel.colorActivo.collectAsState()
@@ -62,10 +63,12 @@ fun SimonDiceUI(viewModel: VM = viewModel()) {
         BotonControl(viewModel, gameState)
     }
 }
+
 @Composable
 fun HeaderInfo(
     ronda: Int,
-    record: RecordModel,
+    // CAMBIO: Ahora es un Record
+    record: Record,
     text: String,
     gameState: GameState
 ) {
@@ -92,7 +95,8 @@ fun HeaderInfo(
             horizontalArrangement = Arrangement.SpaceAround
         ) {
             InfoBox("RONDA", ronda.toString())
-            InfoBox("RÉCORD", record.round.toString()) // CAMBIAR aquí
+            // CAMBIO: Mostrar solo la ronda del record
+            InfoBox("RÉCORD", record.ronda.toString())
             InfoBox("ESTADO", when (gameState) {
                 is GameState.Inicio -> "INICIO"
                 is GameState.Preparando -> "PREPARADO"
@@ -104,29 +108,19 @@ fun HeaderInfo(
             })
         }
 
-        // AGREGAR esto para mostrar la fecha del récord
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Último récord: ${formatDate(record.timestamp)}",
-            fontSize = 12.sp,
-            color = Color.Gray
-        )
-    }
-}
-fun formatDate(isoDate: String): String {
-    return try {
-        if (isoDate.length >= 10) {
-            val date = isoDate.substring(0, 10)
-            val time = if (isoDate.length >= 16) isoDate.substring(11, 16) else "--:--"
-            "$date a las $time"
-        } else {
-            "Fecha no disponible"
+        // CAMBIO NUEVO: Mostrar la fecha del record solo si hay un record guardado
+        if (record.ronda > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Conseguido el: ${record.getFechaFormateada()}",
+                fontSize = 12.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                color = Color.Gray
+            )
         }
-    } catch (e: Exception) {
-        "Fecha no disponible"
     }
 }
+
 @Composable
 fun InfoBox(titulo: String, valor: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -144,6 +138,7 @@ fun InfoBox(titulo: String, valor: String) {
         }
     }
 }
+
 @Composable
 fun BotonesColores(
     viewModel: VM,
@@ -249,4 +244,3 @@ fun BotonControl(viewModel: VM, gameState: GameState) {
         )
     }
 }
-
